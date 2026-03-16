@@ -1,0 +1,85 @@
+# ============================================================
+#  Oracle Database 23ai Free  +  ORDS (SQL Developer Web)
+#  For learning, practice, and experimentation
+# ============================================================
+#
+#  BEFORE FIRST RUN:
+#    1. Accept the Oracle license at https://container-registry.oracle.com
+#       (sign in → Database → free → Accept Agreement)
+#    2. docker login container-registry.oracle.com
+#    3. Copy .env.example to .env and set your passwords
+#
+#  START:   docker compose up -d
+#  STOP:    docker compose down
+#  RESET:   docker compose down -v   ← also wipes data volumes
+# ============================================================
+
+services:
+
+  # ----------------------------------------------------------
+  #  Oracle Database 23ai Free
+  #  • Listener  : localhost:1521
+  #  • EM Express: https://localhost:5500/em
+  # ----------------------------------------------------------
+  oracle-db:
+    image: container-registry.oracle.com/database/free:latest
+    container_name: oracle-db
+    restart: unless-stopped
+
+    environment:
+      ORACLE_PWD: ${ORACLE_PWD}           # SYS / SYSTEM / PDBADMIN password
+      ORACLE_CHARACTERSET: AL32UTF8
+
+    ports:
+      - "1521:1521"   # SQL*Net / JDBC
+      - "5500:5500"   # Enterprise Manager Express (HTTPS)
+
+    volumes:
+      - oracle-data:/opt/oracle/oradata          # persistent DB files
+      - ./init-scripts:/docker-entrypoint-initdb.d  # SQL run on first boot
+
+    shm_size: 1g   # Oracle needs shared memory; increase for heavier workloads
+
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/oracle/checkDBStatus.sh"]
+      interval: 30s
+      timeout: 15s
+      retries: 20
+      start_period: 180s   # DB takes 2-3 min to initialize on first run
+
+  # ----------------------------------------------------------
+  #  ORDS – Oracle REST Data Services
+  #  Bundles SQL Developer Web (full IDE in the browser)
+  #  • SQL Developer Web: http://localhost:8181/ords/sql-developer
+  #  • REST API base   : http://localhost:8181/ords/
+  # ----------------------------------------------------------
+  ords:
+    image: container-registry.oracle.com/database/ords:latest
+    container_name: oracle-ords
+    restart: unless-stopped
+    depends_on:
+      oracle-db:
+        condition: service_healthy
+
+    environment:
+      ORACLE_HOST: oracle-db
+      ORACLE_PORT: 1521
+      ORACLE_SERVICE: FREEPDB1     # pluggable DB — use this for student work
+      ORACLE_PWD: ${ORACLE_PWD}
+      ORDS_PWD: ${ORDS_PWD}
+
+    ports:
+      - "8181:8181"
+
+    volumes:
+      - ords-config:/etc/ords/config   # ORDS config persisted across restarts
+
+    # ORDS needs extra time on first run to install its schema into the DB
+    # If it fails on first boot, just: docker compose restart ords
+
+# ----------------------------------------------------------
+#  Named volumes — data survives container restarts
+# ----------------------------------------------------------
+volumes:
+  oracle-data:
+  ords-config:
