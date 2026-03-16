@@ -62,14 +62,12 @@ services:
         condition: service_healthy
 
     environment:
-      ORACLE_HOST: oracle-db
-      ORACLE_PORT: 1521
-      ORACLE_SERVICE: FREEPDB1     # pluggable DB — use this for student work
+      CONN_STRING: oracle-db:1521/FREEPDB1
       ORACLE_PWD: ${ORACLE_PWD}
-      ORDS_PWD: ${ORDS_PWD}
+      ORDS_PWD: ${ORDS_PWD}   # pluggable DB — use this for student work
 
     ports:
-      - "8181:8181"
+      - "8181:8080"
 
     volumes:
       - ords-config:/etc/ords/config   # ORDS config persisted across restarts
